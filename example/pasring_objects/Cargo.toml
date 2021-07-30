@@ -1,0 +1,19 @@
+[package]
+name = "pasring_objects"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+flate2 = "1.0.20"
+
+[[bin]]
+name = "read"
+path = "src/bin/read_tree.rs"
+[[bin]]
+name = "read_blob"
+path = "src/bin/read_blob.rs"
+[[bin]]
+name = "read_commit"
+path = "src/bin/read_commit.rs"
