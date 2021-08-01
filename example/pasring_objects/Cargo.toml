@@ -9,7 +9,7 @@ edition = "2018"
 flate2 = "1.0.20"
 
 [[bin]]
-name = "read"
+name = "read_tree"
 path = "src/bin/read_tree.rs"
 [[bin]]
 name = "read_blob"

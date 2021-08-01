@@ -1,57 +1,56 @@
-
-use std::fs::File;
 use flate2::bufread::ZlibDecoder;
+use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::path::Path;
 
+pub fn main() {
+  let path = std::env::args().nth(1).expect("no path given");
+  let file = read_file(path.to_string());
 
-pub fn main(){
-    let path = ".git/objects/30/5157a396c6858705a9cb625bab219053264ee4";
-    let file =  read_file(path.to_string());
+  let file_content = decode_reader(file).unwrap();
+  print!("{:?}",file_content);
+  // println!("{:?}", std::str::from_utf8(&file_content[..27]).unwrap());
 
-    let file_content = decode_reader(file).unwrap();
-    // println!("{:?}",file);
-    // let mut z = ZlibDecoder::new(&file[..]);
-    // let mut s:Vec<u8> = Vec::new();
-    // println!("{:?}",z.read_to_end(&mut s));
-    // println!("{:?}",s);
-    println!("{:?}",std::str::from_utf8(&file_content[..23]).unwrap());
-    let sha1 = &file_content[23..];
-    println!("{:x?}", sha1);
-    let sha = format!("{:x?}", sha1);
-    println!("{}",sha);
-    // let mut s = String::new();
-    // println!("{:?}",z.read_to_string(&mut s));
-    // println!("{:?}",std::str::from_utf8(s).unwrap())
+  let mut s : Vec<u8> = Vec::new();
+  let mut i = 0;
+  for n in file_content {
+    
+    if  n == 0  {
+      println!("{:?},",std::str::from_utf8(&s).unwrap());
+      s.clear();
+      i = i + 1;
+    } else {
+      print!("{:?} ",n);
+      s.push(n);
+      println!("---------------{:?}--- ",i);
+      if i == 2 && s.len() == 40 * 4 {
+        s.clear();
+      }
+    }
+  }
 
-    // println!("{:?}",file_content);
-    // let s = &file_content[0..23];
-    // println!("{:?}", std::str::from_utf8(s).unwrap());
+  // let mut iter = file_content.split(|num|num%1 == 32);
+  // for elem in iter {
+  //   let s = String::from_utf8(elem.to_vec()).expect("Found invalid UTF-8");
+   
+  //   println!("{:?}", s);
+  // }
+  
 }
 fn read_file(file_name: String) -> Vec<u8> {
-
-    let path = Path::new(&file_name);
-    if !path.exists() {
-        return String::from("Not Found!").into();
-    }
-    let mut file_content = Vec::new();
-    let mut file = File::open(&file_name).expect("Unable to open file");
-    file.read_to_end(&mut file_content).expect("Unable to read");
-    file_content
+  let path = Path::new(&file_name);
+  if !path.exists() {
+    return String::from("Not Found!").into();
+  }
+  let mut file_content = Vec::new();
+  let mut file = File::open(&file_name).expect("Unable to open file");
+  file.read_to_end(&mut file_content).expect("Unable to read");
+  file_content
 }
 fn decode_reader(bytes: Vec<u8>) -> io::Result<Vec<u8>> {
-    let mut z = ZlibDecoder::new(&bytes[..]);
-    let mut s:Vec<u8> = Vec::new();
-    z.read_to_end(&mut s)?;
-    Ok(s)
+  let mut z = ZlibDecoder::new(&bytes[..]);
+  let mut s: Vec<u8> = Vec::new();
+  z.read_to_end(&mut s)?;
+  Ok(s)
 }
-// fn decode_reader(bytes: Vec<u8>) -> io::Result<String> {
-//     let mut z = ZlibDecoder::new(&bytes[..]);
-//     let mut s = String::new();
-//     z.read_to_string(&mut s)?;
-//     Ok(s)
-// }
-// fn unpack_obj(raw: Vec<u8>){
-//     raw.split(b' ')
-// }

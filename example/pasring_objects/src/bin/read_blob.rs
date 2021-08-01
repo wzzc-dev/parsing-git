@@ -6,23 +6,19 @@ use std::io::prelude::*;
 use std::path::Path;
 
 pub fn main(){
-  
-  let mut path = String::new();
 
-  let b1 = std::io::stdin().read_line(&mut path).unwrap();
-  println!("你好 , {}", path);
-  println!("读取的字节数为：{}", b1);
-    
-  read_blob(path.as_str());
+  let path = std::env::args().nth(1).expect("no path given");
+
+  read_blob(path);
       
 }
 
-fn read_blob(path: &str){
-    let file = read_file(path.to_string());
+fn read_blob(path: String){
+    let file = read_file(path);
 
     let file_content = decode_reader(file).unwrap();
 
-    println!("{:?}", file_content); 
+    println!("{}", file_content); 
 }
 
 fn read_file(file_name: String) -> Vec<u8> {
