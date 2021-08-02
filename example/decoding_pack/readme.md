@@ -1,0 +1,1 @@
+cargo run ../fixtures/pack/pack-674b66bcad5db76fc720ed2559862b1f2ff44e76.idx ../fixtures/pack/pack-674b66bcad5db76fc720ed2559862b1f2ff44e76.pack
