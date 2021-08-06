@@ -13,5 +13,5 @@ cargo run --bin read_tree ../fixtures/tree_object/06ddd74dbc4f2877bf26f71ec8ccb2
 
 读取commit对象测试
 ```
-cargo run --bin read_blob ../fixtures/commit_object/e251d4845d8a538a22b1e2a6a4e804d01272efe9
+cargo run --bin read_commit ../fixtures/commit_object/e251d4845d8a538a22b1e2a6a4e804d01272efe9
 ```
