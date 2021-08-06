@@ -37,37 +37,37 @@ fn decode_reader(bytes: Vec<u8>) -> io::Result<String> {
     let mut z = ZlibDecoder::new(&bytes[..]);
 
   
-  let mut s: Vec<u8> = Vec::new();
-  z.read_to_end(&mut s)?;
+  // let mut s: Vec<u8> = Vec::new();
+  // z.read_to_end(&mut s)?;
   
-  let mut tmp:Vec<u8> = Vec::new();
+  // let mut tmp:Vec<u8> = Vec::new();
 
-  let mut v:Vec<Vec<u8>> = Vec::new();
-  for i in s {
-    tmp.push(i);
-    if i==0u8 {
-      v.push(tmp);
-      tmp = Vec::new();
-    } 
-  }
-  let mut result = String::new();
+  // let mut v:Vec<Vec<u8>> = Vec::new();
+  // for i in s {
+  //   tmp.push(i);
+  //   if i==0u8 {
+  //     v.push(tmp);
+  //     tmp = Vec::new();
+  //   } 
+  // }
+  // let mut result = String::new();
 
-  for n in 0..v.len(){
-    let x = &v[n];
-    if n == 0 || n == 1 {
-      let str = std::str::from_utf8(&x).unwrap();
-      result = result + str;
-      println!("{}",result);
-    } else {
-      let sha = hex::encode(&v[n][..20]);
-      // println!("{:}",sha);
-      result = result + &sha;
-      // println!("{:},",std::str::from_utf8(&v[n][20..]).unwrap());
-      let str =std::str::from_utf8(&v[n][20..]).unwrap();
-      result = result + str;
+  // for n in 0..v.len(){
+  //   let x = &v[n];
+  //   if n == 0 || n == 1 {
+  //     let str = std::str::from_utf8(&x).unwrap();
+  //     result = result + str;
+  //     println!("{}",result);
+  //   } else {
+  //     let sha = hex::encode(&v[n][..20]);
+  //     // println!("{:}",sha);
+  //     result = result + &sha;
+  //     // println!("{:},",std::str::from_utf8(&v[n][20..]).unwrap());
+  //     let str =std::str::from_utf8(&v[n][20..]).unwrap();
+  //     result = result + str;
 
-    }
-  }
+  //   }
+  // }
     let mut s = String::new();
     z.read_to_string(&mut s)?;
     Ok(s)
