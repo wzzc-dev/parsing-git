@@ -5,8 +5,7 @@
 git 生命周期：git init，初始化git项目，生成 .git 文件夹创建文件并git add之后，会生成一个文件对应的 blob 对象 存储到 松散区 .git/object 文件夹git commit 之后，会生成tree对象和 commit对象存储到  .git/object 
 
 git 对象的对应关系：一个 commit 对应一个 tree一个 tree 对应 1个 blob+1个tree （n>=0）一个 tag 对应 一个 commit
-
-![img](https://docimg1.docs.qq.com/image/AqoZqIym-rSx5-GeFn6GsA?w=1094&h=562&_type=png)
+![输入图片说明](https://images.gitee.com/uploads/images/2021/0808/164251_3ac2fdd7_2109625.png "屏幕截图.png")
 
 ## 储存对象方式
 
@@ -82,7 +81,7 @@ committer <author name> <author e-mail> <timestamp> <timezone>​
 
 一个 commit 可能会有多个 parent
 
-![img](https://docimg5.docs.qq.com/image/7AS99sVVtpeX5E8RBXIAPA?w=2077&h=247&_type=png)
+![输入图片说明](https://images.gitee.com/uploads/images/2021/0808/164331_ba8f0587_2109625.png "屏幕截图.png")
 
 ### git对象的压缩
 
@@ -93,7 +92,7 @@ packfile 信息格式
 
 > SHA-1 type size size-in-packfile offset-in-packfile depth base-SHA-1
 
-![](https://docimg6.docs.qq.com/image/_jiMphDY6o6hXx6bR1HjeQ?w=1792&h=455&_type=png)
+![输入图片说明](https://images.gitee.com/uploads/images/2021/0808/164556_0c04a7f2_2109625.png "屏幕截图.png")
 
 git gc 之后 打包成一个packfile，offset-in-packfile 记录在packfile内的偏移量
 
@@ -147,17 +146,16 @@ git gc 之后 打包成一个packfile，offset-in-packfile 记录在packfile内�
 
 - 指向自己的最新的commit
 
-![img](https://docimg8.docs.qq.com/image/t-DGLES5iMk0HT39Q_H-3Q?w=947&h=530&_type=png)
+![输入图片说明](https://images.gitee.com/uploads/images/2021/0808/164402_da1fbb9d_2109625.png "屏幕截图.png")
 
 HEAD文件指针：指向当前工作分支的最新commit
 
-![img](https://docimg10.docs.qq.com/image/QSbW1veLO7PWKYpiQQakJg?w=785&h=72&_type=png)
-
+![输入图片说明](https://images.gitee.com/uploads/images/2021/0808/164417_e6e4c21b_2109625.png "屏幕截图.png")
 
 
 - 分支保存在 .git/refs/heads/（分支名：指向->commit） 
 
-  ![img](https://docimg1.docs.qq.com/image/N7KpnCX_EqcKtBUxak9zfQ?w=991&h=405&_type=png)
+![输入图片说明](https://images.gitee.com/uploads/images/2021/0808/164445_f39850d5_2109625.png "屏幕截图.png")
 
 ### remote
 
@@ -173,9 +171,7 @@ HEAD文件指针：指向当前工作分支的最新commit
 - 本地生成远程远程仓库信息
   - .git/refs/remotes/（sha-1->分支指向commit）
 
-![img](https://docimg7.docs.qq.com/image/JwYvmUkrdwJ8rOrGNvcIaw?w=1019&h=404&_type=png)
-
-
+![输入图片说明](https://images.gitee.com/uploads/images/2021/0808/164901_2966d781_2109625.png "屏幕截图.png")
 
 
 
