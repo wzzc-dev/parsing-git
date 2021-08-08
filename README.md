@@ -4,7 +4,7 @@
 
 https://gitee.com/openeuler-competition/summer-2021/issues/I3S2MP
 
-[对象存储逻辑分析](../Git对象储存逻辑分析.md)
+[对象存储逻辑分析](../master/Git对象储存逻辑分析.md)
 
 #### 软件架构
 
