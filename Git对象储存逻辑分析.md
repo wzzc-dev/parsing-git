@@ -1,3 +1,5 @@
+# 一、Git存储原理分析
+
 ## git 对象生命周期和 git 对象间的关系
 
 分析 git 对象的生命周期和对应关系。对于 git 对象 现在阶段 需要分析 commit、 tree、 blob 三种类型的文件，几种对象的状态，存储方式要实现对提交内容实现数据库支持的检索。
@@ -9,7 +11,7 @@ git 对象的对应关系：一个 commit 对应一个 tree一个 tree 对应 1�
 
 ## 储存对象方式
 
-松散对象和打包对象
+Git 保存对象的格式有两种——松散对象和打包对象。
 
 ### git对象储存目录设计逻辑
 
@@ -45,15 +47,19 @@ content内容保存方式
 >
 > store = header + content 二进制拼接
 
+
+
+# 二、解析Git Object.md
+
 ### object 对象的存储机制
 
-#### blob
+#### 数据对象 blob
 
 blob <content length><NULL><content>
 
 - 储存文件内容，不包括文件名，经过SHA1哈希算法得到对应的哈希值
 
-#### tree
+#### 树对象 tree
 
 tree <content length><NULL><file mode> <filename><NULL><item sha>...
 
@@ -61,19 +67,19 @@ tree <content length><NULL><file mode> <filename><NULL><item sha>...
 - 树对象，作用是存储目录信息，包含了n条树对象记录和n个数据对象记录，
 - 其中每条记录都指向一个数据对象或者是子树对象的SHA-1指针以及相应的模式、类型、文件名
 
-#### commit
+#### 提交对象 commit
 
-commit <content length><NUL>tree <tree sha>
-
-parent <parent sha>[parent <parent sha> if several parents from merges]
-
-author <author name> <author e-mail> <timestamp> <timezone>
-
-
-
-committer <author name> <author e-mail> <timestamp> <timezone>​
-
-<commit message>
+>commit <content length><NUL>tree <tree sha>
+>
+>parent <parent sha>[parent <parent sha> if several parents from merges]
+>
+>author <author name> <author e-mail> <timestamp> <timezone>
+>
+>
+>
+>committer <author name> <author e-mail> <timestamp> <timezone>​
+>
+><commit message>
 
 - 提交对象中包含一个树对象条目，代表着当前项目快照
 - 其他之外还有一些作者/提交者的信息，
@@ -83,41 +89,7 @@ committer <author name> <author e-mail> <timestamp> <timezone>​
 
 ![输入图片说明](https://images.gitee.com/uploads/images/2021/0808/164331_ba8f0587_2109625.png "屏幕截图.png")
 
-### git对象的压缩
-
-- 压缩主要是 blob，add 之后就会压缩（压缩率不同，重复率高的txt压缩率高，二进制文件反而比原始文件大一些），使用 zlib 进行压缩。
-- git gc后，再次压缩（相似文件存储第一个对象和第二个对象存储的差异）---> 出现两个文件 idx、pack；
-
-packfile 信息格式 
-
-> SHA-1 type size size-in-packfile offset-in-packfile depth base-SHA-1
-
-![输入图片说明](https://images.gitee.com/uploads/images/2021/0808/164556_0c04a7f2_2109625.png "屏幕截图.png")
-
-git gc 之后 打包成一个packfile，offset-in-packfile 记录在packfile内的偏移量
-
-### pack 目录下的逻辑(idx、pack)
-
-- 上面都是松散区，当增加大量内容大小几乎完全相同的对象， 手动执行 git gc 命令，或者向远程服务器执行推送时，这些对象打包成一个称为“包文件（packfile）”的二进制文件。
-- 原理：Git 会完整保存其中一个，再保存另一个对象与之前版本的差异内容。即Git将只保存第二个文件中更改的部分，并使用一个指针指向与之相似的文件。并使用一个指向该文件的指针。
-- 具体过程：会新创建一个包文件pack和一个索引idx，包文件包含了打包时从文件系统中移除的所有对象的内容。 索引文件包含了包文件的偏移信息，通过索引文件就可以快速定位任意一个指定对象。
--  git verify-pack 命令查看已打包的内容
-- 1,2,3 commit - pack1 idx1; 4,5 commit - pack2 idx2;
-
-#### unpack
-
-- 新建一个 git 项目 git init newrepo         cd newrepo
-- git unpack-objects < 原项目/.git/objects/xxxx.pack
-
-#### pack方式
-
-- 松散文件打包成pack、idx过程
-- 两次pack间的过程
-  - 后一个替换前一个
-- 索引的方式
-  - 相似文件以最后一次commit的文件为源文件，之前的保存与其的差异。
-
-### Tag
+#### Tag
 
 - **Tag 对象:**打上 tag 之后，这个 tag 代表的内容将永远不可变，因为 tag 只会关联当时版本库中最后一个 commit 对象。
 - Tag 类型有两种：
@@ -140,7 +112,7 @@ git gc 之后 打包成一个packfile，offset-in-packfile 记录在packfile内�
 >
 > message
 
-### branch
+#### branch
 
 本质上是一个有名字的指针，指向特定的commit
 
@@ -157,7 +129,7 @@ HEAD文件指针：指向当前工作分支的最新commit
 
 ![输入图片说明](https://images.gitee.com/uploads/images/2021/0808/164445_f39850d5_2109625.png "屏幕截图.png")
 
-### remote
+#### remote
 
 - 执行git remote add origin [http://xxxxxxx](http://xxxxxxx/)
 - 生成 .git/config
@@ -172,6 +144,48 @@ HEAD文件指针：指向当前工作分支的最新commit
   - .git/refs/remotes/（sha-1->分支指向commit）
 
 ![输入图片说明](https://images.gitee.com/uploads/images/2021/0808/164901_2966d781_2109625.png "屏幕截图.png")
+
+
+
+
+
+# 三、解析Git Packfile.md
+
+### git对象的压缩
+
+- 压缩主要是 blob，add 之后就会压缩（压缩率不同，重复率高的txt压缩率高，二进制文件反而比原始文件大一些），使用 zlib 进行压缩。
+- git gc后，再次压缩（相似文件存储第一个对象和第二个对象存储的差异）---> 出现两个文件 idx、pack；
+
+packfile 信息格式 
+
+> SHA-1 type size size-in-packfile offset-in-packfile depth base-SHA-1
+
+![输入图片说明](https://images.gitee.com/uploads/images/2021/0808/164556_0c04a7f2_2109625.png "屏幕截图.png")
+
+git gc 之后 打包成一个packfile，offset-in-packfile 记录在packfile内的偏移量
+
+### pack 目录下的逻辑(idx、pack)
+
+- 上面都是松散区，当增加大量内容大小几乎完全相同的对象， 手动执行 git gc 命令，或者向远程服务器执行推送时，这些对象打包成一个称为“包文件（packfile）”的二进制文件。
+- 原理：Git 会完整保存其中一个，再保存另一个对象与之前版本的差异内容。即Git将只保存第二个文件中更改的部分，并使用一个指针指向与之相似的文件。并使用一个指向该文件的指针。
+- 具体过程：会新创建一个包文件pack和一个索引idx，包文件包含了打包时从文件系统中移除的所有对象的内容。 索引文件包含了包文件的偏移信息，通过索引文件就可以快速定位任意一个指定对象。
+-  git verify-pack 命令查看已打包的内容
+- 1,2,3 commit - pack1 idx1; 4,5 commit - pack2 idx2;
+
+### unpack
+
+- 新建一个 git 项目 git init newrepo         cd newrepo
+- git unpack-objects < 原项目/.git/objects/xxxx.pack
+
+### pack方式
+
+- 松散文件打包成pack、idx过程
+- 两次pack间的过程
+  - 后一个替换前一个
+- 索引的方式
+  - 相似文件以最后一次commit的文件为源文件，之前的保存与其的差异。
+
+
 
 
 
