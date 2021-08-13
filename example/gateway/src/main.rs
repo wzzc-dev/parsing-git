@@ -11,6 +11,7 @@ async fn main() {
     let app =
         // `GET /` goes to `root`
         route("/", get(root))
+        .route("/info/refs", get(root))
         // `POST /users` goes to `create_user`
         .route("/users", post(create_user));
 
