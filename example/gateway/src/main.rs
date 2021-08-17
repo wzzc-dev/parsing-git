@@ -1,6 +1,14 @@
-use axum::{prelude::*, response::IntoResponse, http::StatusCode};
+use axum::{
+    // async_trait,
+    extract::{self, FromRequest, RequestParts,Query},
+    prelude::*, 
+    // response::{self, IntoResponse},
+    // http::StatusCode
+};
+// use http::Response;
 use serde::{Deserialize, Serialize};
 use std::net::SocketAddr;
+// use tower::BoxError;
 
 #[tokio::main]
 async fn main() {
@@ -9,11 +17,9 @@ async fn main() {
 
     // build our application with a route
     let app =
-        // `GET /` goes to `root`
-        route("/", get(root))
-        .route("/info/refs", get(root))
-        // `POST /users` goes to `create_user`
-        .route("/users", post(create_user));
+        // route("/", post(git_receive_pack_2)).
+        route("/info/refs", get(git_receive_pack_1));
+        // .route("/info/refs?service=git-receive-pack", get(git_receive_pack));
 
     // run our app with hyper
     // `axum::Server` is a re-export of `hyper::Server`
@@ -25,36 +31,31 @@ async fn main() {
         .unwrap();
 }
 
-// basic handler that responds with a static string
 async fn root() -> &'static str {
     "Hello, World!"
 }
 
-async fn create_user(
-    // this argument tells axum to parse the request body
-    // as JSON into a `CreateUser` type
-    extract::Json(payload): extract::Json<CreateUser>,
-) -> impl IntoResponse {
-    // insert your application logic here
-    let user = User {
-        id: 1337,
-        username: payload.username,
-    };
-
-    // this will be converted into an JSON response
-    // with a status code of `201 Created`
-    (StatusCode::CREATED, response::Json(user))
-}
-
-// the input to our `create_user` handler
 #[derive(Deserialize)]
-struct CreateUser {
-    username: String,
+struct ServiceName {
+    service: String,
 }
 
-// the output to our `create_user` handler
-#[derive(Serialize)]
-struct User {
-    id: u64,
-    username: String,
+// async fn git_receive_pack(Query(service): Query<ServiceName>) -> String {
+    
+//     println!("{}", service.service);
+//     service.service
+// }
+async fn git_receive_pack_1(Query(service): Query<ServiceName>, 
+                            context: Request<Body>) -> &'static [u8] {
+    println!("{:?}", service.service);
+    println!("{:?}", context);
+    
+    "001f# service=git-receive-pack\n000000c000908\
+    f76e437935be8f3afa4a6cb67315592b893 refs/heads/master \
+    report-status report-status-v2 delete-refs side-band-64k \
+    quiet atomic ofs-delta push-options object-format=sha1 agent=git/2.32.0\n0000".as_bytes()
+}
+async fn git_receive_pack_2(context: Request<Body>) -> String {
+    println!("{:?}", context);
+    "service.service".to_string()
 }
