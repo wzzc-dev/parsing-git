@@ -18,3 +18,5 @@ tower = "0.4"
 tower-http = "*"
 hyper = "0.14.11"
 
+hex = "0.4.2"
+flate2 = "1.0.20"
