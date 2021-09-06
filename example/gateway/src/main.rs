@@ -214,10 +214,10 @@ fn read_packfile(pack: &mut Bytes, index: usize) {
     
         println!("{:?}", (type_id, size, consumed));
         offset = offset + consumed as usize;
-        let result = get_object(&mut pack[0..].to_vec() , offset ,offset + size as usize, type_id);
+        let result = get_object(&mut pack[0..].to_vec() , offset ,offset + 1 + size as usize, type_id);
         obj = result.0;
         consumed = result.1 as usize;
-        println!("{:?}",obj);
+        println!("{:?}, {}", obj, consumed);
         offset = offset + consumed as usize;
     }
     
@@ -257,19 +257,43 @@ fn get_size(data: &[u8]) -> (u8, u64, usize) {
 fn get_object(pack: &mut Vec<u8>, offset: usize, end: usize, obj_type: u8) -> (String, u64){
     
     if obj_type == 1 {
-        decode_reader((&pack[offset..end]).to_vec())
+        decode_commit((&pack[offset..end]).to_vec())
     } else if obj_type == 2 {
         decode_tree((&pack[offset..end]).to_vec())
     } else if obj_type == 3 {
-        decode_reader((&pack[offset..end]).to_vec())
+        decode_blob((&pack[offset..end]).to_vec())
+    } else if obj_type == 4 {
+        decode_tag((&pack[offset..end]).to_vec())
+    } else  if obj_type == 5 {
+        decode_ofs((&pack[offset..end]).to_vec())
     } else {
         ("".to_string(), 0)
     }
 }
-fn decode_reader(bytes: Vec<u8>) -> (String, u64) {
+fn decode_ofs(bytes: Vec<u8>) -> (String, u64) {
     let mut z = ZlibDecoder::new(&bytes[..]);
     let mut s = String::new();
-    z.read_to_string(&mut s).expect("read object error");
+    z.read_to_string(&mut s);
+    (s,z.total_in())
+}
+
+fn decode_tag(bytes: Vec<u8>) -> (String, u64) {
+    let mut z = ZlibDecoder::new(&bytes[..]);
+    let mut s = String::new();
+    z.read_to_string(&mut s);
+    (s,z.total_in())
+}
+
+fn decode_commit(bytes: Vec<u8>) -> (String, u64) {
+    let mut z = ZlibDecoder::new(&bytes[..]);
+    let mut s = String::new();
+    z.read_to_string(&mut s);
+    (s,z.total_in())
+}
+fn decode_blob(bytes: Vec<u8>) ->  (String, u64) {
+    let mut z = ZlibDecoder::new(&bytes[..]);
+    let mut s = String::new();
+    z.read_to_string(&mut s);
     (s,z.total_in())
 }
 
