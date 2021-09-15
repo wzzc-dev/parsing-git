@@ -18,8 +18,8 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
-use flate2::read::ZlibDecoder;
-use std::io;
+use gateway::pack::packfile::Packfile;
+use std::io::{Cursor, Read};
 
 #[tokio::main]
 async fn main() {
@@ -152,13 +152,19 @@ fn read_body(body: &mut Bytes) {
     // let len = body.len();
     // println!("length: {}", len);
     // println!("{:?}", body.slice(0..4));
-    let (context, len) = read_line(body, 0);
-    println!("{}\n{}", context, len);
-    println!("{:?}", read_line(body, len));
+    let mut index = 0;
+    if &body[index..index+4] != b"0000" {
+        let (context, len) = read_line(body, index);
+        println!("{}\n{}", context, len);
+        println!("{:?}", &body[len..len+4]);
+        index += len;
+    }
 
-    println!("{:?}", read_packfile(body, len + 4))
+    let packfile = Packfile::new(body[index+4..].to_vec());
+    println!("{:?}", packfile);
 }
 fn read_line(body: &mut Bytes, index: usize) -> (String, usize) {
+    
     let line_len_str: String = format!("{:x?}", &body.slice(index..index + 4));
 
     let line_len = &hex::decode(&line_len_str[2..6]).unwrap();
@@ -172,162 +178,4 @@ fn read_line(body: &mut Bytes, index: usize) -> (String, usize) {
 
     // println!("{}", context);
     (String::from(context), len)
-}
-fn read_packfile(pack: &mut Bytes, index: usize) {
-    // let pack:String = format!("{:x?}",&body.slice(index..index+4));
-    // // let pack = &hex::decode(&line_len_str[2..6]).unwrap();
-
-    // println!("{}", pack);
-
-    // // println!("{:?}", &body.slice(index+4..index+100));
-    // // let context = std::str::from_utf8(slice_context).unwrap();
-
-    // let slice_context = &pack.slice(index+4..index+20);
-
-    // let context = std::str::from_utf8(slice_context).unwrap();
-    print!(
-        "头部信息 12 字节：PACK:{:?}, ",
-        std::str::from_utf8(&pack[index + 0..index + 4])
-    );
-    print!("版本号:{:?},", &pack[index + 4..index + 8]);
-    // 条目的4字节号 n 个条目
-    println!("条目数：{:?}", &pack[index + 8..index + 12]);
-    let len = pack[index + 8] as usize * 256 * 256 * 256
-        + pack[index + 9] as usize * 256 * 256
-        + pack[index + 10] as usize * 256
-        + pack[index + 11] as usize;
-    // println!("{}", context);
-
-    println!("{}", len);
-    let mut offset = index + 12;
-
-    
-    // println!("{:?}", pack);
-    let (mut type_id, mut size, mut consumed);
-    let mut obj;
-
-    loop{
-        println!("{}", offset - index);
-
-        let result = get_size(&pack[offset..]);
-        type_id = result.0;
-        size = result.1;
-        consumed = result.2;
-    
-        println!("{:?}", (type_id, size, consumed));
-        offset = offset + consumed as usize;
-        let result = get_object(&mut pack[0..].to_vec() , offset ,offset + 1 + size as usize, type_id);
-        obj = result.0;
-        consumed = result.1 as usize;
-        println!("{:?}, {}", obj, consumed);
-        offset = offset + consumed as usize;
-    }
-    
-
-    // for i in 0..len {
-    //     let (type_id, _size, consumed) = get_size(&pack[offset..]);
-    //     println!("{:?}", (type_id, _size, consumed));
-    //     let mut s1: usize = pack.len();
-    //     println!("{}", s1);
-    //     // if i < len - 1 {
-    //     //     s1 = index[i + 1].offset as usize;
-    //     // }
-    //     // println!("{:?}",index[i].sha1);
-    //     // get_object(pack, offset + consumed, s1, type_id);
-    //     // offset = s1
-    // }
-
-    println!("{:?}", "最后20位校检和:");
-    println!("{:?}", &hex::encode(&pack[pack.len() - 20..pack.len()]));
-    pack.clear();
-}
-
-fn get_size(data: &[u8]) -> (u8, u64, usize) {
-    let mut c = data[0];
-    let mut i = 1;
-    let type_id = (c >> 4) & 0b0000_0111;
-    let mut size = c as u64 & 0b0000_1111;
-    let mut s = 4;
-    while c & 0b1000_0000 != 0 {
-        c = data[i];
-        i += 1;
-        size += ((c & 0b0111_1111) as u64) << s;
-        s += 7
-    }
-    (type_id, size, i)
-}
-fn get_object(pack: &mut Vec<u8>, offset: usize, end: usize, obj_type: u8) -> (String, u64){
-    
-    if obj_type == 1 {
-        decode_commit((&pack[offset..end]).to_vec())
-    } else if obj_type == 2 {
-        decode_tree((&pack[offset..end]).to_vec())
-    } else if obj_type == 3 {
-        decode_blob((&pack[offset..end]).to_vec())
-    } else if obj_type == 4 {
-        decode_tag((&pack[offset..end]).to_vec())
-    } else  if obj_type == 5 {
-        decode_ofs((&pack[offset..end]).to_vec())
-    } else {
-        ("".to_string(), 0)
-    }
-}
-fn decode_ofs(bytes: Vec<u8>) -> (String, u64) {
-    let mut z = ZlibDecoder::new(&bytes[..]);
-    let mut s = String::new();
-    z.read_to_string(&mut s);
-    (s,z.total_in())
-}
-
-fn decode_tag(bytes: Vec<u8>) -> (String, u64) {
-    let mut z = ZlibDecoder::new(&bytes[..]);
-    let mut s = String::new();
-    z.read_to_string(&mut s);
-    (s,z.total_in())
-}
-
-fn decode_commit(bytes: Vec<u8>) -> (String, u64) {
-    let mut z = ZlibDecoder::new(&bytes[..]);
-    let mut s = String::new();
-    z.read_to_string(&mut s);
-    (s,z.total_in())
-}
-fn decode_blob(bytes: Vec<u8>) ->  (String, u64) {
-    let mut z = ZlibDecoder::new(&bytes[..]);
-    let mut s = String::new();
-    z.read_to_string(&mut s);
-    (s,z.total_in())
-}
-
-fn decode_tree(bytes: Vec<u8>) -> (String, u64) {
-    let mut z = ZlibDecoder::new(&bytes[..]);
-    let mut s: Vec<u8> = Vec::new();
-    z.read_to_end(&mut s).expect("read tree error");
-    let mut result = String::new();
-    let mut offset = 0;
-    let mut tmp: Vec<u8> = Vec::new();
-    // for i in &s {
-    //   offset = offset + 1;
-    //   tmp.push(*i);
-    //   if *i==0u8 {
-    //     break;
-    //   }
-    // }
-    // result = std::str::from_utf8(&tmp).unwrap().to_string() + "\n"; // 得到文件类型和大小
-    while offset < s.len() {
-        tmp.clear();
-        let f = offset;
-        for i in &s[f..] {
-            offset = offset + 1;
-            tmp.push(*i);
-            if *i == 0u8 {
-                let name = std::str::from_utf8(&tmp).unwrap();
-                let sha1 = &hex::encode(&s[offset..offset + 20]);
-                result = result + name + " " + sha1 + "\n";
-                offset = offset + 20;
-                break;
-            }
-        }
-    }
-    (result, z.total_in())
 }

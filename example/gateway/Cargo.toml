@@ -20,3 +20,15 @@ hyper = "0.14.11"
 
 hex = "0.4.2"
 flate2 = "1.0.20"
+
+error-chain = "0.12.0"
+rust-crypto = "0.2.36"
+
+[lib]
+name = "gateway"
+path = "src/lib.rs"
+
+[[bin]]
+name = "gateway_bin"
+path = "src/bin/gateway.rs"
+
