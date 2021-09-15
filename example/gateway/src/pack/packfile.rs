@@ -11,7 +11,7 @@ pub struct Packfile {
 }
 impl Packfile {
     pub fn new(mut pack: Vec<u8>) 
-    // -> Result<Packfile> 
+    -> Result<Packfile> 
     {
         let mut offset = 0;
         let magic = &pack[0..4];
@@ -46,11 +46,11 @@ impl Packfile {
 
         }
 
-        // Ok(Packfile {
-        //     object_count,
-        //     version,
-        //     objects
-        // })
+        Ok(Packfile {
+            object_count,
+            version,
+            objects
+        })
     }
 }
 
@@ -101,6 +101,16 @@ pub fn packfile_read(
 
     let read_bytes;
     match obj_type {
+        2 => {
+            let (result, size) = decode_tree(pack[offset..].to_vec());
+
+            return Ok(Object::<String>{
+                meta_info: meta_info,
+                offset: start as u64,
+                size_in_packfile: 1 + consumed + size ,
+                data: result
+            });
+        },
         0..=4 => {
             let mut deflate_stream = ZlibDecoder::new(&pack[offset..]);
             let mut s = String::new();
@@ -174,4 +184,36 @@ use std::convert::TryInto;
 fn to_array<T, const N: usize>(v: Vec<T>) -> [T; N] {
     v.try_into()
         .unwrap_or_else(|v: Vec<T>| panic!("Expected a Vec of length {} but it was {}", N, v.len()))
+}
+fn decode_tree(bytes: Vec<u8>) -> (String, u64) {
+    let mut z = ZlibDecoder::new(&bytes[..]);
+    let mut s: Vec<u8> = Vec::new();
+    z.read_to_end(&mut s).expect("read tree error");
+    let mut result = String::new();
+    let mut offset = 0;
+    let mut tmp: Vec<u8> = Vec::new();
+    // for i in &s {
+    //   offset = offset + 1;
+    //   tmp.push(*i);
+    //   if *i==0u8 {
+    //     break;
+    //   }
+    // }
+    // result = std::str::from_utf8(&tmp).unwrap().to_string() + "\n"; // 得到文件类型和大小
+    while offset < s.len() {
+        tmp.clear();
+        let f = offset;
+        for i in &s[f..] {
+            offset = offset + 1;
+            tmp.push(*i);
+            if *i == 0u8 {
+                let name = std::str::from_utf8(&tmp).unwrap();
+                let sha1 = &hex::encode(&s[offset..offset + 20]);
+                result = result + name + " " + sha1 + "\n";
+                offset = offset + 20;
+                break;
+            }
+        }
+    }
+    (result, z.total_in())
 }
