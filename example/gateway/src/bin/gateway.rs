@@ -20,8 +20,7 @@ use std::process::{Command, Stdio};
 
 use gateway::pack::packfile::Packfile;
 
-use gateway::pack::packfile;
-// use std::io::{Cursor, Read};
+use gateway::errors::{ErrorKind};
 
 #[tokio::main]
 async fn main() {
@@ -162,12 +161,27 @@ fn read_body(body: &mut Bytes) {
         index += len;
     }
 
-    let packfile = Packfile::new(body[index+4..].to_vec()).unwrap();
+    let mut packfile = Packfile::new(body[index+4..].to_vec()).unwrap();
     // println!("{:?}", packfile);
-    for elem in packfile.objects {
-        packfile::decode_obj(elem.meta_info.obj_type, elem.data);
-    }
+    // for elem in packfile.objects {
+    //     // let data:Vec<u8> =  elem.data;
+        
+    //     match elem.meta_info.obj_type {
+    //         2 =>{ 
+    //             println!("hash:{}, context:{:?}", elem.hash,  decode_tree(elem.data));
+    //         },
+    //         0..=4 => {
+                
+    //             println!("hash:{}, context:{:?}", elem.hash, std::str::from_utf8(&elem.data));
 
+    //         }
+    //         _ => {
+    //         println!("hash:{}, context:{:?}", elem.hash, "def");
+    //     }
+    //     }
+    // }
+
+    
     println!("end");
 }
 fn read_line(body: &mut Bytes, index: usize) -> (String, usize) {

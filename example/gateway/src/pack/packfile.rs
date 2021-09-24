@@ -32,11 +32,20 @@ impl Packfile {
         let mut offset: usize = 12;
         let mut objects: Vec<Object> = Vec::new();
         while i < object_count {
+            
             let object = packfile_read(&mut pack, &mut offset).unwrap();
-            println!(
-                "offset: {}, size_in_packfile: {}, hash: {}",
-                object.offset, object.size_in_packfile, object.hash
-            );
+            // println!(
+            //     "type: {}",
+            //     object.meta_info.obj_type
+            // );
+            // println!(
+            //     "offset: {}, size_in_packfile: {}, hash: {}",
+            //     object.offset, object.size_in_packfile, object.hash
+            // );
+            // println!(
+            //     "data: {:?}",
+            //      object.data
+            // );
 
             offset = (object.offset + object.size_in_packfile) as usize;
             objects.push(object);
@@ -113,7 +122,7 @@ pub fn packfile_read(pack: &mut Vec<u8>, index: &mut usize) -> Result<Object> {
                 hash: get_hash(obj_type, &mut data).unwrap(),
                 data,
             });
-        }
+        },
 
         6 => {
             // OFS_DELTA
@@ -138,7 +147,7 @@ pub fn packfile_read(pack: &mut Vec<u8>, index: &mut usize) -> Result<Object> {
             let mut ofs = start - negative_offset as usize;
             let ofs_object = packfile_read(pack, &mut ofs).unwrap();
 
-            let (mut result, written) = get_delta(ofs_object.data,&mut instructions);
+            let (mut result, written) = get_ofs_delta(ofs_object.data,&mut instructions);
             // println!("--- >\n {} \n {:?} \n---->", written, ofs_object.meta_info);
             // read_bytes = 2 + consumed + deflate_stream.total_in();
             return Ok(Object {
@@ -148,7 +157,7 @@ pub fn packfile_read(pack: &mut Vec<u8>, index: &mut usize) -> Result<Object> {
                 hash: get_hash(obj_type, &mut result).unwrap(),
                 data: result,
             });
-        }
+        },
 
         7 => {
             // REF_DELTA
@@ -157,23 +166,24 @@ pub fn packfile_read(pack: &mut Vec<u8>, index: &mut usize) -> Result<Object> {
             // let id = Id::from(&ref_bytes);
             let ref_bytes = &pack[offset..offset + 20];
             offset += 20;
-            println!("{:?}", &hex::encode(ref_bytes));
+            // println!("{:?}", &hex::encode(ref_bytes));
             let mut deflate_stream = ZlibDecoder::new(&pack[offset..]);
             let mut instructions = Vec::new();
             deflate_stream.read_to_end(&mut instructions)?;
-            offset += 1 + deflate_stream.total_in() as usize;
-            println!("offset: {}", offset);
-            // read_bytes = 21 + consumed + deflate_stream.total_in();
+            offset += deflate_stream.total_in() as usize;
+            // println!("offset: {}", offset);
+            // // read_bytes = 21 + consumed + deflate_stream.total_in();
+            // println!("{:?},{},{},{},{:?}", meta_info, start,(offset - start),get_hash(obj_type, &mut instructions).unwrap(),instructions);
             return Ok(Object {
                 meta_info: meta_info,
                 offset: start as u64,
                 size_in_packfile: (offset - start) as u64,
-                hash: get_hash(obj_type, &mut instructions).unwrap(),
+                hash: hex::encode(ref_bytes),
                 data: instructions,
             });
-        }
+        },
 
-        _ => Err(ErrorKind::BadLooseObject.into()),
+        _ => Err(ErrorKind::BadLooseObject.into())
     }
 }
 use std::convert::TryInto;
@@ -217,7 +227,12 @@ fn decode_tree(bytes: Vec<u8>) -> Result<String> {
     }
     Ok(result)
 }
-
+fn decode_blob(bytes: Vec<u8>) -> Result<Vec<u8>> {
+    let mut z = ZlibDecoder::new(&bytes[..]);
+    let mut s = Vec::new();
+    z.read_to_end(&mut s)?;
+    Ok(s)
+}
 fn decode_commit(bytes: Vec<u8>) -> Result<String> {
     let mut z = ZlibDecoder::new(&bytes[..]);
     let mut s = String::new();
@@ -250,7 +265,7 @@ pub fn as_str(object_type: u8) -> &'static str {
         _ => "blob",
     }
 }
-fn get_delta(base: Vec<u8>, instructions:&mut Vec<u8>) -> (Vec<u8>, usize) {
+fn get_ofs_delta(base: Vec<u8>, instructions:&mut Vec<u8>) -> (Vec<u8>, usize) {
     let decoder = DeltaDecoder::new(&instructions, base).expect("wrong base size");
     let mut result = vec![0; decoder.output_size()];
     let mut decoder_stream: DeltaDecoderStream = decoder.into();
