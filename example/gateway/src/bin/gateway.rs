@@ -18,9 +18,9 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
+use gateway::database::mysql;
 use gateway::pack::packfile::Packfile;
-
-use gateway::errors::{ErrorKind};
+use sqlx::mysql::MySqlPoolOptions;
 
 #[tokio::main]
 async fn main() {
@@ -118,7 +118,7 @@ async fn process_pack(req: Request<Body>) -> impl IntoResponse {
         .spawn()
         .expect("Failed to spawn child process");
 
-    read_body(&mut bytes);
+    read_body(&mut bytes).await.unwrap();
 
     let mut stdin = pipe.stdin.take().expect("Failed to open stdin");
     std::thread::spawn(move || {
@@ -149,43 +149,73 @@ where
     }
     Ok(bytes)
 }
-fn read_body(body: &mut Bytes) {
+async fn read_body(body: &mut Bytes) -> Result<(), sqlx::Error> {
     // let len = body.len();
     // println!("length: {}", len);
     // println!("{:?}", body.slice(0..4));
     let mut index = 0;
-    if &body[index..index+4] != b"0000" {
+    if &body[index..index + 4] != b"0000" {
         let (context, len) = read_line(body, index);
         println!("{}\n{}", context, len);
-        println!("{:?}", &body[len..len+4]);
+        println!("{:?}", &body[len..len + 4]);
         index += len;
     }
 
-    let mut packfile = Packfile::new(body[index+4..].to_vec()).unwrap();
+    let packfile = Packfile::new(body[index + 4..].to_vec()).unwrap();
     // println!("{:?}", packfile);
-    // for elem in packfile.objects {
-    //     // let data:Vec<u8> =  elem.data;
-        
-    //     match elem.meta_info.obj_type {
-    //         2 =>{ 
-    //             println!("hash:{}, context:{:?}", elem.hash,  decode_tree(elem.data));
-    //         },
-    //         0..=4 => {
-                
-    //             println!("hash:{}, context:{:?}", elem.hash, std::str::from_utf8(&elem.data));
+    let database_url = "mysql://root:123456@localhost:3306/git";
 
-    //         }
-    //         _ => {
-    //         println!("hash:{}, context:{:?}", elem.hash, "def");
-    //     }
-    //     }
-    // }
+    let pool = MySqlPoolOptions::new()
+            .max_connections(5)
+            .connect(database_url)
+            .await?;
+    let mut conn = pool.acquire().await?;
 
-    
+    for mut elem in packfile.objects {
+        // let data:Vec<u8> =  elem.data;
+        match elem.meta_info.obj_type {
+            2 => {
+                // println!("hash:{}, context:{:?}", elem.hash,  decode_tree(elem.data));
+                mysql::insert_blob(&mut elem.hash, elem.content, &mut conn).await?;
+
+                let index = mysql::GitIndex {
+                    sha_1: Some(elem.hash),
+                    obj_type: elem.meta_info.obj_type,
+                    size: elem.meta_info.size,
+                    size_in_packfile: elem.size_in_packfile,
+                    offset_in_pack: elem.offset,
+                    depth: 0,
+                    bash_sha_1: None,
+                };
+                mysql::insert(index,&mut conn).await?;
+            }
+            0..=4 => {
+                mysql::insert_blob(&mut elem.hash, elem.content,&mut conn).await?;
+                let index = mysql::GitIndex {
+                    sha_1: Some(elem.hash),
+                    obj_type: elem.meta_info.obj_type,
+                    size: elem.meta_info.size,
+                    size_in_packfile: elem.size_in_packfile,
+                    offset_in_pack: elem.offset,
+                    depth: 0,
+                    bash_sha_1: None,
+                };
+                mysql::insert(index,&mut conn).await?;
+            }
+            _ => {
+                // println!("hash:{}, context:{:?}", elem.hash, "def");
+                mysql::insert_blob(&mut elem.hash, "def".to_string(),&mut conn).await?;
+
+            }
+        }
+    }
+
+  
     println!("end");
+
+    Ok(())
 }
 fn read_line(body: &mut Bytes, index: usize) -> (String, usize) {
-    
     let line_len_str: String = format!("{:x?}", &body.slice(index..index + 4));
 
     let line_len = &hex::decode(&line_len_str[2..6]).unwrap();
