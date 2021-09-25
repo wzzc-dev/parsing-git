@@ -19,8 +19,9 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 
 use gateway::database::mysql;
-use gateway::pack::packfile::Packfile;
-use sqlx::mysql::MySqlPoolOptions;
+use gateway::pack::packfile::{Packfile, packfile_read, get_ofs_delta, get_hash, Object};
+use sqlx::mysql::{MySqlPoolOptions, MySqlConnection};
+
 
 #[tokio::main]
 async fn main() {
@@ -171,9 +172,10 @@ async fn read_body(body: &mut Bytes) -> Result<(), sqlx::Error> {
             .await?;
     let mut conn = pool.acquire().await?;
 
-    for elem in packfile.objects {
+    for mut elem in packfile.objects {
+
         // let data:Vec<u8> =  elem.data;
-        let mut index = mysql::GitIndex {
+        let mut git_index = mysql::GitIndex {
             sha_1: Some(elem.hash),
             obj_type: elem.meta_info.obj_type,
             size: elem.meta_info.size,
@@ -182,16 +184,21 @@ async fn read_body(body: &mut Bytes) -> Result<(), sqlx::Error> {
             depth: elem.depth,
             base_sha_1: Some(elem.base_sha_1),
         };
-        mysql::insert(&mut index,&mut conn).await?;
-        let mut sha_1 = &mut index.sha_1.clone().unwrap();
+        mysql::insert(&mut git_index,&mut conn).await?;
+
         match elem.meta_info.obj_type {
-            0..=4 => {
-               
+            0..=6 => {
+                let mut sha_1 = &mut git_index.sha_1.clone().unwrap();
+
+
                 mysql::insert_blob(&mut sha_1, elem.content, &mut conn).await?;
             }
             _ => {
-                // println!("hash:{}, context:{:?}", elem.hash, "def");
-                mysql::insert_blob(&mut sha_1, elem.content,&mut conn).await?;
+                let pack = &mut body[index + 4..].to_vec();
+
+                
+                // get_ref_delta(pack,&mut git_index, &mut elem.data,&mut conn).await?;
+            
 
             }
         }
@@ -216,4 +223,27 @@ fn read_line(body: &mut Bytes, index: usize) -> (String, usize) {
 
     // println!("{}", context);
     (String::from(context), len)
+}
+async fn get_ref_delta(pack: &mut Vec<u8>, git_index:&mut mysql::GitIndex, data: &mut Vec<u8>, conn: &mut MySqlConnection) -> Result<(), sqlx::Error>{
+
+    let mut base_sha_1 = git_index.base_sha_1.clone().unwrap();
+    println!("{}",base_sha_1);
+
+    let base_index: mysql::GitIndex = mysql::get_index(&mut base_sha_1, conn).await?;
+    println!("base_index:{:?}", base_index);
+
+    let mut offset_in_pack = base_index.offset_in_pack as usize;
+    
+    let object = packfile_read(pack,&mut offset_in_pack).unwrap();
+    println!("data:{:?}, instr:{:?}", object.data,data);
+
+    let (mut result, _written) = get_ofs_delta(object.data, data);
+    git_index.sha_1 = Some(get_hash(git_index.obj_type,&mut result).unwrap());
+    
+    mysql::insert(git_index, conn).await?;
+
+    let sha_1 = &mut git_index.sha_1.clone().unwrap();
+    mysql::insert_blob(sha_1, std::str::from_utf8(&result).unwrap().to_string(), conn).await?;
+
+    Ok(())
 }

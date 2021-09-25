@@ -169,7 +169,7 @@ pub fn packfile_read(pack: &mut Vec<u8>, index: &mut usize) -> Result<Object> {
             // let id = Id::from(&ref_bytes);
             let ref_bytes = &pack[offset..offset + 20];
             offset += 20;
-            // println!("{:?}", &hex::encode(ref_bytes));
+            println!("ref_bytesref_bytes{:?}", &hex::encode(ref_bytes));
             let mut deflate_stream = ZlibDecoder::new(&pack[offset..]);
             let mut instructions = Vec::new();
             deflate_stream.read_to_end(&mut instructions)?;
@@ -185,11 +185,11 @@ pub fn packfile_read(pack: &mut Vec<u8>, index: &mut usize) -> Result<Object> {
                 meta_info: meta_info,
                 offset: start as u64,
                 size_in_packfile: (offset - start) as u64,
-                hash: hex::encode(ref_bytes),
+                hash: "".to_string(),
                 data: instructions,
                 content,
-                base_sha_1: "".to_string(),
-                depth: 8888
+                base_sha_1: hex::encode(ref_bytes),
+                depth: 888
             });
         },
 
@@ -203,7 +203,7 @@ fn to_array<T, const N: usize>(v: Vec<T>) -> [T; N] {
         .unwrap_or_else(|v: Vec<T>| panic!("Expected a Vec of length {} but it was {}", N, v.len()))
 }
 
-fn get_hash(object_type: u8, data: &mut Vec<u8>) -> Result<String> {
+pub fn get_hash(object_type: u8, data: &mut Vec<u8>) -> Result<String> {
     let mut hash = Sha1::new();
     let mut header_buffer = Vec::new();
     write!(
@@ -228,7 +228,7 @@ pub fn as_str(object_type: u8) -> &'static str {
         _ => "blob",
     }
 }
-fn get_ofs_delta(base: Vec<u8>, instructions:&mut Vec<u8>) -> (Vec<u8>, usize) {
+pub fn get_ofs_delta(base: Vec<u8>, instructions:&mut Vec<u8>) -> (Vec<u8>, usize) {
     let decoder = DeltaDecoder::new(&instructions, base).expect("wrong base size");
     let mut result = vec![0; decoder.output_size()];
     let mut decoder_stream: DeltaDecoderStream = decoder.into();

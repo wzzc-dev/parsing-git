@@ -1,6 +1,6 @@
 use sqlx::mysql::MySqlConnection;
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, sqlx::FromRow)]
 pub struct GitIndex {
     pub sha_1: Option<String>,
     pub obj_type: u8,
@@ -47,4 +47,14 @@ pub async fn insert_blob(sha_1:&mut String, context: String, conn:&mut MySqlConn
 
     Ok(())
 
+}
+pub async fn get_index(sha_1:&mut String,conn:&mut MySqlConnection)-> Result<GitIndex, sqlx::Error>{
+    let sql = "select * from `git_index`
+                    where sha_1 = ?";
+    let recs = sqlx::query_as::<_, GitIndex>(sql)
+        .bind(sha_1.to_string())
+        .fetch_one(conn).await;
+
+    
+    recs
 }
