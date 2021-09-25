@@ -171,40 +171,27 @@ async fn read_body(body: &mut Bytes) -> Result<(), sqlx::Error> {
             .await?;
     let mut conn = pool.acquire().await?;
 
-    for mut elem in packfile.objects {
+    for elem in packfile.objects {
         // let data:Vec<u8> =  elem.data;
+        let mut index = mysql::GitIndex {
+            sha_1: Some(elem.hash),
+            obj_type: elem.meta_info.obj_type,
+            size: elem.meta_info.size,
+            size_in_packfile: elem.size_in_packfile,
+            offset_in_pack: elem.offset,
+            depth: elem.depth,
+            base_sha_1: Some(elem.base_sha_1),
+        };
+        mysql::insert(&mut index,&mut conn).await?;
+        let mut sha_1 = &mut index.sha_1.clone().unwrap();
         match elem.meta_info.obj_type {
-            2 => {
-                // println!("hash:{}, context:{:?}", elem.hash,  decode_tree(elem.data));
-                mysql::insert_blob(&mut elem.hash, elem.content, &mut conn).await?;
-
-                let index = mysql::GitIndex {
-                    sha_1: Some(elem.hash),
-                    obj_type: elem.meta_info.obj_type,
-                    size: elem.meta_info.size,
-                    size_in_packfile: elem.size_in_packfile,
-                    offset_in_pack: elem.offset,
-                    depth: 0,
-                    bash_sha_1: None,
-                };
-                mysql::insert(index,&mut conn).await?;
-            }
             0..=4 => {
-                mysql::insert_blob(&mut elem.hash, elem.content,&mut conn).await?;
-                let index = mysql::GitIndex {
-                    sha_1: Some(elem.hash),
-                    obj_type: elem.meta_info.obj_type,
-                    size: elem.meta_info.size,
-                    size_in_packfile: elem.size_in_packfile,
-                    offset_in_pack: elem.offset,
-                    depth: 0,
-                    bash_sha_1: None,
-                };
-                mysql::insert(index,&mut conn).await?;
+               
+                mysql::insert_blob(&mut sha_1, elem.content, &mut conn).await?;
             }
             _ => {
                 // println!("hash:{}, context:{:?}", elem.hash, "def");
-                mysql::insert_blob(&mut elem.hash, "def".to_string(),&mut conn).await?;
+                mysql::insert_blob(&mut sha_1, elem.content,&mut conn).await?;
 
             }
         }

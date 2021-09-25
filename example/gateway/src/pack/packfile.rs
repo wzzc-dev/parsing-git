@@ -4,7 +4,8 @@ use crypto::{digest::Digest, sha1::Sha1};
 use flate2::read::ZlibDecoder;
 use std::io::Read;
 use std::io::Write;
-use crate::pack::blob;
+use crate::pack::{blob,tree};
+
 #[derive(Debug)]
 pub struct Packfile {
     pub object_count: u32,
@@ -44,17 +45,19 @@ impl Packfile {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct Object {
     pub meta_info: MetaInfo,
     pub offset: u64,
     pub size_in_packfile: u64,
     pub hash: String,
     pub data: Vec<u8>,
-    pub content: String
+    pub content: String,
+    pub base_sha_1: String,
+    pub depth: u64
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct MetaInfo {
     pub obj_type: u8,
     pub size: u64,
@@ -100,8 +103,12 @@ pub fn packfile_read(pack: &mut Vec<u8>, index: &mut usize) -> Result<Object> {
             offset += deflate_stream.total_in() as usize;
             let hash = get_hash(obj_type, &mut data).unwrap();
             let size_in_packfile = (offset - start) as u64;
-            
-            let content = blob::Blob::new(pack, meta_info.consumed as usize + 1 +start);
+            let content;
+            if obj_type==2 {
+                content = tree::Tree::new(pack, meta_info.consumed as usize + 1 +start);
+            }else{
+                content = blob::Blob::new(pack, meta_info.consumed as usize + 1 +start);
+            }
 
             return Ok(Object {
                 meta_info: meta_info,
@@ -109,7 +116,9 @@ pub fn packfile_read(pack: &mut Vec<u8>, index: &mut usize) -> Result<Object> {
                 size_in_packfile,
                 hash,
                 data,
-                content
+                content,
+                base_sha_1: "".to_string(),
+                depth: 0
             });
         },
 
@@ -135,7 +144,7 @@ pub fn packfile_read(pack: &mut Vec<u8>, index: &mut usize) -> Result<Object> {
 
             let mut ofs = start - negative_offset as usize;
             let ofs_object = packfile_read(pack, &mut ofs).unwrap();
-
+            
             let (mut result, _written) = get_ofs_delta(ofs_object.data,&mut instructions);
             // println!("--- >\n {} \n {:?} \n---->", written, ofs_object.meta_info);
             // read_bytes = 2 + consumed + deflate_stream.total_in();
@@ -147,7 +156,9 @@ pub fn packfile_read(pack: &mut Vec<u8>, index: &mut usize) -> Result<Object> {
                 size_in_packfile: (offset - start) as u64,
                 hash: get_hash(obj_type, &mut result).unwrap(),
                 data: result,
-                content
+                base_sha_1: ofs_object.hash,
+                content,
+                depth: ofs_object.depth + 1
             });
         },
 
@@ -176,7 +187,9 @@ pub fn packfile_read(pack: &mut Vec<u8>, index: &mut usize) -> Result<Object> {
                 size_in_packfile: (offset - start) as u64,
                 hash: hex::encode(ref_bytes),
                 data: instructions,
-                content
+                content,
+                base_sha_1: "".to_string(),
+                depth: 8888
             });
         },
 

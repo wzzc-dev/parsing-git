@@ -8,10 +8,10 @@ pub struct GitIndex {
     pub size_in_packfile: u64,
     pub offset_in_pack: u64,
     pub depth: u64,
-    pub bash_sha_1: Option<String>,
+    pub base_sha_1: Option<String>,
 }
 
-pub async fn insert(git_index: GitIndex, conn:&mut MySqlConnection) -> Result<(), sqlx::Error>{
+pub async fn insert(git_index:&mut GitIndex, conn:&mut MySqlConnection) -> Result<(), sqlx::Error>{
     // let database_url = "mysql://root:123456@localhost:3306/git";
 
     // let pool = MySqlPoolOptions::new()
@@ -19,16 +19,16 @@ pub async fn insert(git_index: GitIndex, conn:&mut MySqlConnection) -> Result<()
     //         .connect(database_url)
     //         .await?;
     // let mut conn = pool.acquire().await?;
-    let sql = "insert into git_index (sha_1, obj_type, size, size_in_packfile, offset_in_pack, depth, bash_sha_1) 
+    let sql = "insert into git_index (sha_1, obj_type, size, size_in_packfile, offset_in_pack, depth, base_sha_1) 
                     value (?, ?, ?, ?, ?, ?, ?)";
     sqlx::query(sql)
-        .bind(git_index.sha_1)
+        .bind(git_index.sha_1.clone())
         .bind(git_index.obj_type)
         .bind(git_index.size)
         .bind(git_index.size_in_packfile)
         .bind(git_index.offset_in_pack)
         .bind(git_index.depth)
-        .bind(git_index.bash_sha_1)
+        .bind(git_index.base_sha_1.clone())
         .execute(conn)
     .await?;
 
@@ -36,13 +36,11 @@ pub async fn insert(git_index: GitIndex, conn:&mut MySqlConnection) -> Result<()
 
 }
 pub async fn insert_blob(sha_1:&mut String, context: String, conn:&mut MySqlConnection) -> Result<(), sqlx::Error>{
-
-    let sha:String = sha_1.to_string();
    
     let sql = "insert into `blob` (sha_1, context) 
                     values (?, ?)";
     sqlx::query(sql)
-        .bind(sha)
+        .bind(sha_1.to_string())
         .bind(context)
         .execute(conn)
     .await?;
