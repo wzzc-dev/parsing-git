@@ -43,6 +43,7 @@ pub struct DeltaDecoder {
 }
 
 impl DeltaDecoder {
+    // instructions 是插入指令， base 是原对象
     pub fn new (instructions: &[u8], base: Vec<u8>) -> Result<DeltaDecoder> {
         let (after_base_size, base_size) = read_varint(0, instructions);
         let (index, output_size) = read_varint(after_base_size, instructions);

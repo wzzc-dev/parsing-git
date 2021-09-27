@@ -74,10 +74,13 @@ async fn handle_refs(
     }
 
     let repo_path = "/root/Tmp/repositories/test.git";
-    Command::new("git")
+    
+    let out = Command::new("git")
         .args(["init", "--bare", repo_path])
         .output()
         .expect("sh exec error!");
+
+    tracing::debug!("create remote Git repository: {:?}", out);
 
     let path = Path::new(&repo_path);
     if !path.exists() {
