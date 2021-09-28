@@ -1,14 +1,23 @@
 use flate2::read::ZlibDecoder;
 use crate::errors::{Result};
 use std::io::Read;
-// TODO 数据库 Tree 对象
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Tree {
+use std::collections::BTreeMap;
+
+
+#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+pub struct FileMode(u32);
+
+#[derive(Debug)]
+pub struct TreeEntry {
+    pub mode: FileMode,
     pub sha_1: Option<String>,
-    pub name: Option<String>,
-    pub content: Option<String>,
-    pub file_type: Option<String>
 }
+
+#[derive(Debug)]
+pub struct Tree {
+    entries: BTreeMap<Vec<u8>, TreeEntry>
+}
+
 impl Tree {
     pub fn new(pack:&mut Vec<u8>, offset: usize) -> String {
         let content = match decode_tree(pack[offset..].to_vec()) {

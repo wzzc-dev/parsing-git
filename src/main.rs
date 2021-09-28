@@ -18,9 +18,9 @@ use std::io::prelude::*;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
+use gateway::pack::{index::Index, object};
+use sqlx::mysql::{MySqlPoolOptions};
 use gateway::database::mysql;
-use gateway::pack::packfile::{Packfile, packfile_read, get_delta, get_hash};
-use sqlx::mysql::{MySqlPoolOptions, MySqlConnection};
 
 #[tokio::main]
 async fn main() {
@@ -80,7 +80,7 @@ async fn handle_refs(
         .output()
         .expect("sh exec error!");
 
-    tracing::debug!("create remote Git repository: {:?}", out);
+    tracing::debug!("create remote Git repository: {:?}", out.status);
 
     let path = Path::new(&repo_path);
     if !path.exists() {
@@ -153,8 +153,9 @@ async fn read_body(body: &mut Bytes) -> Result<(), sqlx::Error> {
         tracing::debug!("{}\n{}", context, len);
         index += len;
     }
-
-    let packfile = Packfile::new(body[index + 4..].to_vec()).unwrap();
+    let mut packfile = body[index + 4..].to_vec();
+    let offsets = Index::get_offset(&mut packfile).unwrap();
+    
     // 连接数据库
     let database_url = "mysql://root:123456@localhost:3306/git";
 
@@ -164,36 +165,25 @@ async fn read_body(body: &mut Bytes) -> Result<(), sqlx::Error> {
             .await?;
     let mut conn = pool.acquire().await?;
 
-    let objects = packfile.objects;
-    let mut len = objects.len();
+
+    let mut len = offsets.len();
+
     // 逆序遍历 让数据写入数据库
     while len > 0 {
         len -= 1;
-        let elem = objects.get(len).unwrap();
-
+        let offset = offsets.get(len).unwrap();
+        let object = object::read_object(&mut packfile, offset).unwrap();
         let mut git_index = mysql::GitIndex {
-            sha_1: Some(elem.hash.clone()),
-            obj_type: elem.meta_info.obj_type,
-            size: elem.meta_info.size,
-            size_in_packfile: elem.size_in_packfile,
-            offset_in_pack: elem.offset,
-            depth: elem.depth,
-            base_sha_1: Some(elem.base_sha_1.clone()),
+            sha_1: Some(object.hash.clone()),
+            obj_type: object.meta_info.obj_type,
+            size: object.meta_info.size,
+            size_in_packfile: object.size_in_packfile,
+            offset_in_pack: object.offset,
+            depth: object.depth,
+            base_sha_1: Some(object.base_sha_1.clone()),
         };
         mysql::insert(&mut git_index,&mut conn).await?;
-
-        match elem.meta_info.obj_type {
-            0..=6 => {
-                let mut sha_1 = &mut git_index.sha_1.clone().unwrap();
-                mysql::insert_blob(&mut sha_1, elem.content.clone(), &mut conn).await?;
-            }
-            
-            _ => {
-                let pack = &mut body[index + 4..].to_vec();
-                get_ref_delta(pack,&mut git_index, &mut elem.data.clone(),&mut conn).await?;
-            }
-        }
-
+        mysql::insert_blob(&mut object.hash.clone(), object.content.clone(), &mut conn).await?;
     }
 
     println!("end");
@@ -214,28 +204,4 @@ fn read_line(body: &mut Bytes, index: usize) -> (String, usize) {
     let context = std::str::from_utf8(slice_context).unwrap();
 
     (String::from(context), len)
-}
-// ref_delta 的处理方法
-async fn get_ref_delta(pack: &mut Vec<u8>, git_index:&mut mysql::GitIndex, data: &mut Vec<u8>, conn: &mut MySqlConnection) -> Result<(), sqlx::Error>{
-
-    let mut base_sha_1 = git_index.base_sha_1.clone().unwrap();
-    println!("{}",base_sha_1);
-
-    let base_index: mysql::GitIndex = mysql::get_index(&mut base_sha_1, conn).await?;
-    println!("base_index:{:?}", base_index);
-
-    let mut offset_in_pack = base_index.offset_in_pack as usize;
-    
-    let object = packfile_read(pack,&mut offset_in_pack).unwrap();
-    println!("data:{:?}, instr:{:?}", object.data,data);
-
-    let (mut result, _written) = get_delta(object.data, data);
-    git_index.sha_1 = Some(get_hash(git_index.obj_type,&mut result).unwrap());
-    
-    mysql::insert(git_index, conn).await?;
-
-    let sha_1 = &mut git_index.sha_1.clone().unwrap();
-    mysql::insert_blob(sha_1, std::str::from_utf8(&result).unwrap().to_string(), conn).await?;
-
-    Ok(())
 }

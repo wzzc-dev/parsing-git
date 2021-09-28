@@ -1,47 +1,9 @@
-use crate::errors::{ErrorKind, Result};
-use crate::pack::delta::{DeltaDecoder, DeltaDecoderStream};
-use crypto::{digest::Digest, sha1::Sha1};
 use flate2::read::ZlibDecoder;
-use std::io::Read;
-use std::io::Write;
+use std::io::{Read,Write};
+use crypto::{digest::Digest, sha1::Sha1};
+use crate::pack::delta::{DeltaDecoder, DeltaDecoderStream};
+use crate::errors::{ErrorKind, Result};
 use crate::pack::{blob,tree};
-
-#[derive(Debug)]
-pub struct Packfile {
-    pub object_count: u32,
-    pub version: u32,
-    pub objects: Vec<Object>,
-}
-impl Packfile {
-    pub fn new(mut pack: Vec<u8>) -> Result<Packfile> {
-        // packfile header 解析
-        let magic = &pack[0..4];
-
-        if &magic != b"PACK" {
-            return Err(ErrorKind::CorruptedPackfile.into());
-        }
-
-        let version = u32::from_be_bytes(to_array(pack[4..8].to_vec()));
-        let object_count = u32::from_be_bytes(to_array(pack[8..12].to_vec()));
-
-        let mut i = 1;
-        let mut offset: usize = 12;
-        let mut objects: Vec<Object> = Vec::new();
-        while i < object_count {
-            // packfile 对象解析
-            let object = packfile_read(&mut pack, &mut offset).unwrap();
-            offset = (object.offset + object.size_in_packfile) as usize;
-            objects.push(object);
-            i += 1;
-        }
-
-        Ok(Packfile {
-            object_count,
-            version,
-            objects,
-        })
-    }
-}
 
 #[derive(Debug,Clone)]
 pub struct Object {
@@ -61,12 +23,10 @@ pub struct MetaInfo {
     pub size: u64,
     pub consumed: u64,
 }
-/**
- * 从 packfile 中读取对象
- * param：pack packfile 
- * index：对象偏移
- */
-pub fn packfile_read(pack: &mut Vec<u8>, index: &mut usize) -> Result<Object> {
+impl Object {
+    
+}
+pub fn read_object(pack: &mut Vec<u8>, index: &usize) -> Result<Object> {
     let mut offset = *index;
     let start = offset;
     let mut byte = pack[offset];
@@ -144,7 +104,7 @@ pub fn packfile_read(pack: &mut Vec<u8>, index: &mut usize) -> Result<Object> {
             offset += deflate_stream.total_in() as usize;
 
             let mut ofs = start - negative_offset as usize;
-            let ofs_object = packfile_read(pack, &mut ofs).unwrap();
+            let ofs_object = read_object(pack, &mut ofs).unwrap();
 
             let (mut result, _written) = get_delta(ofs_object.data,&mut instructions);
             let content = blob::Blob::new(pack, meta_info.consumed as usize + 1 +start);
@@ -188,12 +148,6 @@ pub fn packfile_read(pack: &mut Vec<u8>, index: &mut usize) -> Result<Object> {
 
         _ => Err(ErrorKind::BadLooseObject.into())
     }
-}
-use std::convert::TryInto;
-
-fn to_array<T, const N: usize>(v: Vec<T>) -> [T; N] {
-    v.try_into()
-        .unwrap_or_else(|v: Vec<T>| panic!("Expected a Vec of length {} but it was {}", N, v.len()))
 }
 // 对象 sha_1 计算
 pub fn get_hash(object_type: u8, data: &mut Vec<u8>) -> Result<String> {
