@@ -18,7 +18,7 @@ https://gitee.com/openeuler-competition/summer-2021/issues/I3S2MP
 
 #### 安装教程 && 使用说明
 
-环境要求: rust 1.53、git 2.33
+环境要求: rust 1.53、git 2.33、mysql
 
 1. git clone https://gitee.com/openeuler-competition/summer2021-154.git
 2. cd path/to/summer2021-154
