@@ -14,9 +14,11 @@ struct GitObject {
 fn main() {
   let idx = std::env::args().nth(1).expect("no path given");
 
-  let pack = std::env::args().nth(2).expect("no path given");
+  // let pack = std::env::args().nth(2).expect("no path given");
+  let idx = read_file(idx);
+  decode_idx(idx);
 
-  read_packfile(idx, pack);
+  // read_packfile(idx, pack);
 }
 
 fn read_packfile(idx: String, pack: String) {
@@ -27,10 +29,10 @@ fn read_packfile(idx: String, pack: String) {
   //   println!("{},{}",elem.sha1,elem.offset);
   // }
 
-  println!();
-  let mut pack = read_file(pack);
-  let pack_content = decode_pack(&mut idx_content,&mut pack).unwrap();
-  println!("{:?}", pack_content);
+  // println!();
+  // let mut pack = read_file(pack);
+  // let pack_content = decode_pack(&mut idx_content,&mut pack).unwrap();
+  // println!("{:?}", pack_content);
 }
 fn read_file(file_name: String) -> Vec<u8> {
   let path = Path::new(&file_name);
@@ -75,12 +77,14 @@ fn decode_idx(bytes: Vec<u8>) -> io::Result<Vec<GitObject>> {
   let mut n:usize = 0;
   for i in (8..1032).filter(|x| ((x - 8) % 4 == 0)) {
     // 一个条目告诉我们有多少（对象值）个对象以对象名（十六进制）开头
-    // 第n个条目告诉我们n的值个(减去前面)对象以 十六进制的n 开头
+    // 第n个条目告诉我们 有 {n的值(减去前面)}个 对象以 十六进制的n 开头
     let m = idx[i] as usize * 256 * 256* 256 + idx[i+1] as usize * 256 * 256 
     + idx[i+2] as usize * 256 + idx[i+3] as usize; 
+    // print!("{:?}", idx[i]);
     if m != n {
-      // print!("{:x} *", (i - 8)/4); // sha1码前两位
-      // println!("{:?} ", m-n); // 有几个 
+      print!("{:x} *", (i - 8)/4); // sha1码前两位
+      print!("{:?} ", m); // 有几个
+      println!("{:?} ", m-n); // 有几个 
 
       n = m;
     }
